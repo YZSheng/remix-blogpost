@@ -5,7 +5,7 @@ import {
   redirect,
 } from "@remix-run/node";
 import invariant from "tiny-invariant";
-import { getPost, updatePost } from "~/models/post.server";
+import { deletePost, getPost, updatePost } from "~/models/post.server";
 import type { Post } from "~/models/post.server";
 import { Form, useLoaderData } from "@remix-run/react";
 
@@ -23,24 +23,30 @@ const inputClassName = `w-full rounded border border-gray-500 px-2 py-1 text-lg`
 
 export const action: ActionFunction = async ({ request }) => {
   const formData = await request.formData();
-
+  const method = request.method.toLowerCase();
   const title = formData.get("title");
   const slug = formData.get("slug");
   const markdown = formData.get("markdown");
-
-  const errors: ActionData = {
-    title: title ? null : "Title is required",
-    slug: slug ? null : "Slug is required",
-    markdown: markdown ? null : "Markdown is required",
-  };
-  const hasErrors = Object.values(errors).some((errorMessage) => errorMessage);
-  if (hasErrors) {
-    return json<ActionData>(errors);
+  if (method === "put") {
+    const errors: ActionData = {
+      title: title ? null : "Title is required",
+      slug: slug ? null : "Slug is required",
+      markdown: markdown ? null : "Markdown is required",
+    };
+    const hasErrors = Object.values(errors).some(
+      (errorMessage) => errorMessage
+    );
+    if (hasErrors) {
+      return json<ActionData>(errors);
+    }
+    invariant(typeof title === "string", "title must be a string");
+    invariant(typeof slug === "string", "slug must be a string");
+    invariant(typeof markdown === "string", "markdown must be a string");
+    await updatePost({ title, slug, markdown });
+  } else if (method === "delete") {
+    invariant(typeof slug === "string", "slug must be a string");
+    await deletePost(slug);
   }
-  invariant(typeof title === "string", "title must be a string");
-  invariant(typeof slug === "string", "slug must be a string");
-  invariant(typeof markdown === "string", "markdown must be a string");
-  await updatePost({ title, slug, markdown });
 
   return redirect("/posts/admin");
 };
@@ -57,7 +63,7 @@ export default function EditPost() {
   return (
     <div>
       <h2 className="mb-2 text-2xl">Editing Post {post.title}</h2>
-      <Form method="put">
+      <Form method="put" key={post.slug}>
         <p>
           <label>
             Post Title:{" "}
@@ -91,11 +97,26 @@ export default function EditPost() {
         <p className="text-right">
           <button
             type="submit"
-            className="rounded bg-blue-500 py-2 px-4 text-white hover:bg-blue-600 focus:bg-blue-400 disabled:bg-blue-300"
+            className="w-24 rounded bg-blue-500 py-2 px-4 text-white hover:bg-blue-600 focus:bg-blue-400 disabled:bg-blue-300"
           >
             Update
           </button>
         </p>
+      </Form>
+      <Form method="delete" className="my-2 text-right">
+        <input
+          type="text"
+          name="slug"
+          hidden
+          aria-hidden
+          defaultValue={post.slug}
+        />
+        <button
+          type="submit"
+          className="w-24 rounded bg-blue-500 py-2 px-4 text-white hover:bg-blue-600 focus:bg-blue-400 disabled:bg-blue-300"
+        >
+          Delete
+        </button>
       </Form>
     </div>
   );
